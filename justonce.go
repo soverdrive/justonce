@@ -11,6 +11,7 @@ import (
 var (
 	ErrNoUniqueSeed = fmt.Errorf("No UniqueSeed provided\n")
 	ErrNoStorage    = fmt.Errorf("No Storage provided\n")
+	ErrNoUniqueID   = fmt.Errorf("No UniqueID ever generated\n")
 )
 
 type Storage interface {
@@ -19,31 +20,25 @@ type Storage interface {
 	Delete(key string) error
 }
 
-type Instance struct {
-	Storage
-}
-
-var defaultInstance Instance
+var defaultStorage Storage
 
 func Init(o Storage) {
-	defaultInstance = Instance{
-		Storage: o,
-	}
+	defaultStorage = o
 
-	DefaultParams.KVStorage = defaultInstance
-}
-
-func SpawnStorage(o Storage) Instance {
-	return Instance{
-		Storage: o,
-	}
+	DefaultParams.KVStorage = defaultStorage
 }
 
 type justonceInstance struct {
 	uniqueID         string
 	instanceCreation time.Time
 	sleepDuration    time.Duration
-	dataStore        Instance
+	dataStore        Storage
+}
+
+func (d justonceInstance) validate() error {
+	if d.uniqueID == "" {
+		return ErrNoUniqueID
+	}
 }
 
 func (d justonceInstance) PreventDuringInterval(key string, seconds int) error {
@@ -87,7 +82,7 @@ type Params struct {
 	UniqueGenerator UniqueFunc
 	UniqueSeed      interface{}
 	TakeANap        time.Duration
-	KVStorage       Instance
+	KVStorage       Storage
 	isDefault       bool
 }
 
@@ -96,7 +91,7 @@ func (p Params) validate() error {
 		return ErrNoUniqueSeed
 	}
 
-	if p.KVStorage == (Instance{}) {
+	if p.KVStorage == nil {
 		return ErrNoStorage
 	}
 
@@ -120,6 +115,10 @@ func New(p Params) (justonceInstance, error) {
 
 	d.sleepDuration = p.TakeANap
 	d.dataStore = p.KVStorage
+
+	if err := d.validate(); err != nil {
+		return d, err
+	}
 
 	return d, nil
 }
