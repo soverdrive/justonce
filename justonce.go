@@ -43,19 +43,20 @@ type justonceInstance struct {
 	uniqueID         string
 	instanceCreation time.Time
 	sleepDuration    time.Duration
+	dataStore        Instance
 }
 
 func (d justonceInstance) PreventDuringInterval(key string, seconds int) error {
-	err := defaultInstance.Set(key, d.uniqueID, seconds)
+	err := d.dataStore.Set(key, d.uniqueID, seconds)
 	if err != nil {
 		return err
 	}
 
 	time.Sleep(d.sleepDuration)
 
-	gotCacheVal, err := defaultInstance.Get(key)
+	gotCacheVal, err := d.dataStore.Get(key)
 	if err != nil {
-		defaultInstance.Delete(key)
+		d.dataStore.Delete(key)
 		return err
 	}
 
@@ -118,6 +119,7 @@ func New(p Params) (justonceInstance, error) {
 	}
 
 	d.sleepDuration = p.TakeANap
+	d.dataStore = p.KVStorage
 
 	return d, nil
 }
