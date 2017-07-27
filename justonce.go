@@ -39,6 +39,8 @@ func (d justonceInstance) validate() error {
 	if d.uniqueID == "" {
 		return ErrNoUniqueID
 	}
+
+	return nil
 }
 
 func (d justonceInstance) PreventDuringInterval(key string, seconds int) error {
