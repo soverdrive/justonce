@@ -4,14 +4,10 @@ import (
 	"sync"
 	"testing"
 
+	"log"
+
 	"github.com/soverdrive/justonce"
 )
-
-// type Storage interface {
-// 	Get(key string) (string, error)
-// 	Set(key, value string, exp int) error
-// 	Delete(key string) error
-// }
 
 type TestingStorage struct {
 	s    map[string]string
@@ -51,33 +47,39 @@ func (t *TestingStorage) Delete(key string) error {
 }
 
 func TestDuplicatePrevention(t *testing.T) {
-	var temp TestingStorage
+	var temp = new(TestingStorage)
 	storage := temp.Init()
 
 	justonce.Init(storage)
 
-	var err [2]*error
+	var err = make([]error, 2)
 	var wg = &sync.WaitGroup{}
 	wg.Add(1)
-	go func(e *error) {
+	go func(e error) {
 		var key = "test01"
-		instance, _ := justonce.New(justonce.DefaultParams)
-		t.Errorf(instance.GetUniqueID())
-		err1 := instance.PreventDuringInterval(key, 60)
-		e = &err1
+		instance, err := justonce.New(justonce.DefaultParams)
+		log.Println(err)
+		err = instance.PreventDuringInterval(key, 10)
+		log.Println(instance.GetUniqueID(), instance.GetInstanceCreation())
+		e = err
+		log.Println(err)
 		wg.Done()
 	}(err[0])
+
 	wg.Add(1)
-	go func(e *error) {
-		var key = "test02"
-		instance, _ := justonce.New(justonce.DefaultParams)
-		t.Errorf(instance.GetUniqueID())
-		err2 := instance.PreventDuringInterval(key, 60)
-		e = &err2
+	go func(e error) {
+		var key = "test01"
+		instance, err := justonce.New(justonce.DefaultParams)
+		log.Println(err)
+		err = instance.PreventDuringInterval(key, 10)
+		log.Println(instance.GetUniqueID(), instance.GetInstanceCreation())
+		e = err
+		log.Println(err)
 		wg.Done()
 	}(err[1])
 
 	wg.Wait()
+	log.Println(err)
 	for i := 0; i < 2; i++ {
 		if err[i] != nil {
 			t.Errorf("%+v\n", err[i])

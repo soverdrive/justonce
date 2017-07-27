@@ -5,8 +5,6 @@ import (
 	"math/rand"
 	"time"
 
-	"log"
-
 	"github.com/oklog/ulid"
 )
 
@@ -31,6 +29,8 @@ func Init(o Storage) {
 	defaultInstance = Instance{
 		Storage: o,
 	}
+
+	DefaultParams.KVStorage = defaultInstance
 }
 
 func SpawnStorage(o Storage) Instance {
@@ -63,8 +63,6 @@ func (d justonceInstance) PreventDuringInterval(key string, seconds int) error {
 		return fmt.Errorf("Duplication detected! Found %v, expected %v\n", gotCacheVal, d.uniqueID)
 	}
 
-	log.Println(gotCacheVal, d.uniqueID)
-
 	return nil
 }
 
@@ -80,8 +78,7 @@ type UniqueFunc func(interface{}) string
 
 var DefaultParams = Params{
 	UniqueGenerator: getUniqueID,
-	TakeANap:        2 * time.Second,
-	KVStorage:       defaultInstance,
+	TakeANap:        2 * time.Millisecond,
 	isDefault:       true,
 }
 
@@ -119,6 +116,8 @@ func New(p Params) (justonceInstance, error) {
 	} else {
 		d.uniqueID = p.UniqueGenerator(p.UniqueSeed)
 	}
+
+	d.sleepDuration = p.TakeANap
 
 	return d, nil
 }
