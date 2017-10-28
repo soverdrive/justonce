@@ -3,6 +3,7 @@ package justonce_test
 import (
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/soverdrive/justonce"
 )
@@ -50,14 +51,14 @@ func TestDuplicatePrevention(t *testing.T) {
 
 	justonce.Init(storage)
 
-	var errChan = make(chan error, 2)
+	var errChan = make(chan error, 3)
 	var wg = &sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
 		var key = "test01"
 		instance, _ := justonce.New(justonce.DefaultParams)
 
-		err := instance.PreventDuringInterval(key, 10)
+		err := instance.PreventDuringInterval(key, 2)
 		errChan <- err
 		wg.Done()
 	}()
@@ -67,7 +68,18 @@ func TestDuplicatePrevention(t *testing.T) {
 		var key = "test01"
 		instance, _ := justonce.New(justonce.DefaultParams)
 
-		err := instance.PreventDuringInterval(key, 10)
+		err := instance.PreventDuringInterval(key, 2)
+		errChan <- err
+		wg.Done()
+	}()
+
+	wg.Add(1)
+	go func() {
+		time.Sleep(1 * time.Second)
+		var key = "test01"
+		instance, _ := justonce.New(justonce.DefaultParams)
+
+		err := instance.PreventDuringInterval(key, 2)
 		errChan <- err
 		wg.Done()
 	}()
@@ -75,14 +87,14 @@ func TestDuplicatePrevention(t *testing.T) {
 	wg.Wait()
 	close(errChan)
 
-	var duplicationDetected bool
+	var duplicationDetected int
 	for v := range errChan {
-		if v != nil {
-			duplicationDetected = true
+		if v == justonce.ErrDuplication {
+			duplicationDetected++
 		}
 	}
 
-	if !duplicationDetected {
+	if duplicationDetected < 2 {
 		t.Errorf("No duplication detected! Duplication should happened")
 	}
 }

@@ -9,9 +9,10 @@ import (
 )
 
 var (
-	ErrNoUniqueSeed = fmt.Errorf("No UniqueSeed provided\n")
-	ErrNoStorage    = fmt.Errorf("No Storage provided\n")
-	ErrNoUniqueID   = fmt.Errorf("No UniqueID ever generated\n")
+	ErrNoUniqueSeed = fmt.Errorf("No UniqueSeed provided")
+	ErrNoStorage    = fmt.Errorf("No Storage provided")
+	ErrNoUniqueID   = fmt.Errorf("No UniqueID ever generated")
+	ErrDuplication  = fmt.Errorf("Duplication detected!")
 )
 
 type Storage interface {
@@ -44,6 +45,14 @@ func (d justonceInstance) validate() error {
 }
 
 func (d justonceInstance) PreventDuringInterval(key string, seconds int) error {
+	// Check whether a key is already cached
+	// This `get` is for client that store the key with timelimit longer than timesleep
+	//  or if `PreventDuringInterval` function is called when doing timesleep
+	gotCacheVal, _ := d.dataStore.Get(key)
+	if gotCacheVal != "" {
+		return ErrDuplication
+	}
+
 	err := d.dataStore.Set(key, d.uniqueID, seconds)
 	if err != nil {
 		return err
@@ -51,14 +60,13 @@ func (d justonceInstance) PreventDuringInterval(key string, seconds int) error {
 
 	time.Sleep(d.sleepDuration)
 
-	gotCacheVal, err := d.dataStore.Get(key)
+	gotCacheVal, err = d.dataStore.Get(key)
 	if err != nil {
-		d.dataStore.Delete(key)
 		return err
 	}
 
 	if gotCacheVal != d.uniqueID {
-		return fmt.Errorf("Duplication detected! Found %v, expected %v\n", gotCacheVal, d.uniqueID)
+		return ErrDuplication
 	}
 
 	return nil
@@ -76,7 +84,7 @@ type UniqueFunc func(interface{}) string
 
 var DefaultParams = Params{
 	UniqueGenerator: getUniqueID,
-	TakeANap:        2 * time.Millisecond,
+	TakeANap:        20 * time.Millisecond,
 	isDefault:       true,
 }
 
